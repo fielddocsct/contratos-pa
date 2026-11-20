@@ -129,7 +129,7 @@ if idd or dec:
         if dos:
             for k in second_fields:
                 v[k] = st.text_input(LABELS[k], defaults.get(k, ""))
-        enviado = st.form_submit_button("Generar contrato", type="primary")
+        enviado = st.form_submit_button("1️⃣ Generar contrato", type="primary")
 
     with st.expander("Datos extra leídos (no van en el contrato)"):
         st.write(f"ID: licencia {idd.get('license', '')}  |  nacimiento {idd.get('dob', '')}")
@@ -154,7 +154,7 @@ if idd or dec:
 
     res = st.session_state.get("res")
     if res and res["firma"] == firma:
-        st.success("Contrato generado con los datos de arriba.")
+        st.success("Contrato generado con los datos de arriba. Ahora pulsa «2️⃣ Descargar» (solo una vez).")
         if res["vacios"]:
             st.warning("Quedaron vacíos: " + ", ".join(res["vacios"]) + ". Si hace falta, complétalos arriba y pulsa «Generar contrato» otra vez.")
         verified = True
@@ -163,7 +163,7 @@ if idd or dec:
             if not res["policy"].strip():
                 st.warning("Escribe el número de póliza y vuelve a generar el contrato para poder descargar.")
             verified = verified and bool(res["policy"].strip())
-        st.download_button("⬇️ Descargar contrato en PDF", res["pdf"], disabled=not verified,
+        st.download_button("2️⃣ ⬇️ Descargar contrato en PDF", res["pdf"], disabled=not verified,
                            file_name=res["nombre"], mime="application/pdf", type="primary")
     else:
-        st.caption("Revisa los datos y pulsa «Generar contrato».")
+        st.caption("Revisa los datos y pulsa «1️⃣ Generar contrato». Después aparecerá el botón de descarga.")
