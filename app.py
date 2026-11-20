@@ -1,3 +1,4 @@
+
 import os, json
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -13,6 +14,8 @@ LABELS = {
     "claim": "Claim No. (si existe)", "loss_type": "Tipo de pérdida",
     "loss_address": "Dirección de la pérdida", "loss_date": "Fecha de la pérdida (MM/DD/AAAA)",
     "capacity": "Capacidad del firmante", "sign_date": "Fecha de firma (MM/DD/AAAA)",
+    "second_name": "Nombre del segundo firmante", "second_capacity": "Capacidad del segundo firmante",
+    "second_date": "Fecha de firma del segundo firmante (MM/DD/AAAA)",
 }
 
 
@@ -98,43 +101,69 @@ if idd or dec:
         "address": idd.get("address") or dec.get("address", ""),
         "carrier": dec.get("carrier", ""),
         "loss_address": dec.get("address") or idd.get("address", ""),
-        "capacity": "Owner",
-        "sign_date": hoy,
+        "capacity": "Owner", "sign_date": hoy,
+        "second_capacity": "Owner", "second_date": hoy,
     }
-    v = Blank()
+    plantillas = list(cfg["map"].values())
+    second_fields = [f for f in ("second_name", "second_capacity", "second_date") if any("{" + f + "}" in t for t in plantillas)]
+
+    # Opciones que cambian la pantalla: van FUERA del formulario
+    dos = st.checkbox("Hay un segundo firmante", key=f"dos_{pa}") if second_fields else False
     unverified = bool(dec.get("policy_unverified")) and "policy" in form
-    policy = ""
-    for k in form:
-        if k == "policy":
-            cands = dec.get("candidates", [])
-            pol_default = dec.get("policy", "")
-            if dec.get("policy_unverified") and len(cands) > 1:
-                choice = st.selectbox("Posibles números de póliza leídos", cands + ["(escribir a mano)"])
-                pol_default = "" if choice == "(escribir a mano)" else choice
-            v[k] = policy = st.text_input(LABELS[k], pol_default, key=f"pol_{pol_default}")
-            if unverified:
-                st.error("⚠️ Número de póliza sin verificar: se leyó con OCR y puede tener letras o números mal leídos (por ejemplo 0 por O, o Q por 0). Compáralo con el documento.")
-        else:
-            v[k] = st.text_input(LABELS[k], defaults.get(k, ""))
+    cands = dec.get("candidates", [])
+    pol_default = dec.get("policy", "")
+    if unverified and len(cands) > 1:
+        choice = st.selectbox("Posibles números de póliza leídos", cands + ["(escribir a mano)"])
+        pol_default = "" if choice == "(escribir a mano)" else choice
+
+    # Formulario: nada se aplica hasta pulsar "Generar contrato" (así no se pierde lo que escribes)
+    v, policy = Blank(), ""
+    with st.form(f"datos_{pa}"):
+        for k in form:
+            if k == "policy":
+                v[k] = policy = st.text_input(LABELS[k], pol_default, key=f"pol_{pol_default}")
+                if unverified:
+                    st.error("⚠️ Número de póliza sin verificar: se leyó con OCR y puede tener letras o números mal leídos (por ejemplo 0 por O, o Q por 0). Compáralo con el documento.")
+            else:
+                v[k] = st.text_input(LABELS[k], defaults.get(k, ""))
+        if dos:
+            for k in second_fields:
+                v[k] = st.text_input(LABELS[k], defaults.get(k, ""))
+        enviado = st.form_submit_button("Generar contrato", type="primary")
 
     with st.expander("Datos extra leídos (no van en el contrato)"):
         st.write(f"ID: licencia {idd.get('license', '')}  |  nacimiento {idd.get('dob', '')}")
         st.write(f"Póliza: {dec.get('policy', '')}  |  aseguradora: {dec.get('carrier', '')}")
         st.text(idd.get("raw", ""))
 
-    # Datos derivados: la dirección partida en calle y ciudad/estado/ZIP
+    # Datos derivados
     calle, _, resto = v.get("address", "").partition(",")
     v["street"], v["city_state_zip"] = calle.strip(), resto.strip()
+    nombres = [x for x in (v.get("insured", ""), v.get("second_name", "")) if x.strip()]
+    v["insured_all"] = " and ".join(nombres)
 
-    values = {campo: plantilla.format_map(v) for campo, plantilla in cfg["map"].items()}
-    pdf = fill_contract(TEMPLATE, values)
+    firma = (pa, id_file.name if id_file else "", id_file.size if id_file else 0,
+             dec_file.name if dec_file else "", dec_file.size if dec_file else 0, dos)
+    if enviado:
+        values = {campo: plantilla.format_map(v) for campo, plantilla in cfg["map"].items()}
+        st.session_state["res"] = {
+            "firma": firma, "pdf": fill_contract(TEMPLATE, values), "policy": policy,
+            "nombre": f"Contrato_{(v.get('insured') or 'cliente').strip().replace(' ', '_')}.pdf",
+            "vacios": [LABELS[k] for k in ("loss_type", "loss_date") if k in form and not v.get(k, "").strip()],
+        }
 
-    verified = True
-    if unverified:
-        verified = st.checkbox("✅ Verifiqué el número de póliza contra el documento", key=f"ver_{dec_file.name}_{policy}")
-        if not policy.strip():
-            st.warning("Escribe el número de póliza para poder descargar.")
-        verified = verified and bool(policy.strip())
-    nombre = (v.get("insured") or "cliente").replace(" ", "_")
-    st.download_button("⬇️ Descargar contrato en PDF", pdf, disabled=not verified,
-                       file_name=f"Contrato_{nombre}.pdf", mime="application/pdf", type="primary")
+    res = st.session_state.get("res")
+    if res and res["firma"] == firma:
+        st.success("Contrato generado con los datos de arriba.")
+        if res["vacios"]:
+            st.warning("Quedaron vacíos: " + ", ".join(res["vacios"]) + ". Si hace falta, complétalos arriba y pulsa «Generar contrato» otra vez.")
+        verified = True
+        if unverified:
+            verified = st.checkbox("✅ Verifiqué el número de póliza contra el documento", key=f"ver_{dec_file.name}_{res['policy']}")
+            if not res["policy"].strip():
+                st.warning("Escribe el número de póliza y vuelve a generar el contrato para poder descargar.")
+            verified = verified and bool(res["policy"].strip())
+        st.download_button("⬇️ Descargar contrato en PDF", res["pdf"], disabled=not verified,
+                           file_name=res["nombre"], mime="application/pdf", type="primary")
+    else:
+        st.caption("Revisa los datos y pulsa «Generar contrato».")
