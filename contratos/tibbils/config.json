@@ -1,0 +1,17 @@
+{
+  "title": "Catalyst Contract",
+  "pdf": "contrato.pdf",
+  "form": ["insured", "address", "loss_type", "loss_address", "loss_date", "capacity", "sign_date"],
+  "map": {
+    "Loss type": "{loss_type}",
+    "Loss address": "{loss_address}",
+    "Date of loss": "{loss_date}",
+    "First insured date": "{sign_date}",
+    "First insured printed name": "{insured}",
+    "First insured capacity": "{capacity}",
+    "Insured names": "{insured}",
+    "Insured address": "{street}",
+    "City, state and ZIP": "{city_state_zip}",
+    "Public adjuster date": "{sign_date}"
+  }
+}

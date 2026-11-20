@@ -1,0 +1,20 @@
+{
+  "title": "Contrato Public Adjuster",
+  "pdf": "contrato.pdf",
+  "form": ["insured", "phone", "email", "address", "carrier", "policy", "claim", "loss_type", "loss_address", "loss_date", "sign_date"],
+  "map": {
+    "insured": "{insured}",
+    "insured_phone": "{phone}",
+    "insured_email": "{email}",
+    "insured_address": "{address}",
+    "carrier": "{carrier}",
+    "policy": "{policy}",
+    "claim": "{claim}",
+    "loss_type": "{loss_type}",
+    "loss_address": "{loss_address}",
+    "loss_date": "{loss_date}",
+    "insured_signature_name": "{insured}",
+    "insured_signature_date": "{sign_date}",
+    "adjuster_signature_date": "{sign_date}"
+  }
+}
